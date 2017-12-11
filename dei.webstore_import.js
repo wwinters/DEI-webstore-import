@@ -16,7 +16,9 @@
  *												__ORDER_FOLDER:	106339	//File Cabinet ID of Main Folder
  *												Check if upload folder has files then move the files to their respective folder and run the script
  *												Appends time stamp to each file name to move files into pending folder to not overwrite the previous files.
- *												
+ *
+ * 1.20		7 Dec 2017		wwinters			Add logic to import item fulfillments as sales order transforms
+ * 									
  */
 
 /**
@@ -43,6 +45,10 @@ DEI.Service = {
 			,__ORDER_PENDING_FOLDER: 		106341 //File Cabinet ID of Folder containing pending order import files
 			,__ORDER_COMPLETED_FOLDER:		106345 //File Cabinet ID of Folder containing completed order import files
 			,__ORDER_ERROR_FOLDER:			106343 //File Cabinet ID of Folder containing order import files that did not complete due to error
+			
+			,__FULFILLMENT_PENDING_FOLDER:		536242
+			,__FULFILLMENT_COMPLETED_FOLDER:	536243
+			,__FULFILLMENT_ERROR_FOLDER:		536244
 			
 			,__CUSTOMER_SAVED_IMPORT:		52 //Internal ID of Saved Customer CSV Import
 			,__ORDER_SAVED_IMPORT:			53 //Internal ID of Saved Order CSV Import
@@ -115,6 +121,27 @@ DEI.Service = {
 				//if (email_body) {
 				//	nlapiSendEmail(this.__SENDER_EMPLOYEE_ID, this.__RECIPIENT_EMAIL, 'CSV Import Processing', email_body);
 				//}
+				
+				//Import CSV files to transform sales orders to item fulfillments
+				try{
+					//Look for import file of item fulfillments
+					var ifFiles = DEI.Service.FC.getFiles(this.__FULFILLMENT_PENDING_FOLDER);
+					if (ifFiles) {
+						nlapiLogExecution('DEBUG', funcName, 'Fulfillment Import File(s) Found');
+						var fulfillmentImport = DEI.Service.DB.transform(
+								ifFiles,this.FULFILLMENT_COMPLETED_FOLDER,this.__FULFILLMENT_ERROR_FOLDER
+								);
+						if (fulfillmentImport == 'error') {
+							nlapiSendEmail(this.__EMAIL, this.__RECIPIENT_EMAIL, 'CSV Fulfillment Import Error', 'CSV Fulfillment Import Error');
+						}
+						else {
+							email_body += fulfillmentImport + ' Fulfillment Record(s) Imported<br />';
+						}
+					}
+				} catch(e) {
+	                (e instanceof nlobjError) ? nlapiLogExecution('ERROR', 'System Error', e.getCode() + '<br/>' + e.getDetails()) : 
+                        nlapiLogExecution('ERROR', 'Unexpected Error', e.toString()); 
+				}
 				
 				//Remove Files older than specified # of days
 				var completed_customer_files = DEI.Service.FC.getFiles(this.__CUSTOMER_COMPLETED_FOLDER,this.__NUMBER_OF_DAYS_TO_HOLD_COMPLETED_JOBS);
@@ -233,6 +260,112 @@ DEI.Service = {
 					}
 				}
 				return jobId;
+			}
+		
+			,transform: function (fileArray,folderId,errorFolderId) {
+				var importedRecords = 0;
+				var salesorderSearch = nlapiSearchRecord("salesorder",null,
+						[
+							   ["type","anyof","SalesOrd"], 
+							   "AND", 
+							   ["mainline","is","T"], 
+							   "AND", 
+							   ["status","anyof","SalesOrd:B","SalesOrd:D","SalesOrd:E"]
+						], 
+						[
+							new nlobjSearchColumn("externalid",null,null)
+						]
+				);
+				var getInternalIdFromExternalId = function(salesorderSearch,extid) {
+					for (var i=0; i<salesorderSearch.length; i++) {
+						if (salesorderSearch[i].getValue('externalid') == extid) {
+							return salesorderSearch[i].getId();
+						}
+					}
+					return null;
+				};
+				var csvTojs = function(csv) {
+					var lines=csv.split("\n");
+					var result = [];
+					var headers=lines[0].split(",");
+					for(var i=1;i<lines.length;i++){
+						var obj = {};
+						var currentline=lines[i].split(",");
+						for(var j=0;j<headers.length;j++){
+							obj[headers[j]] = currentline[j];
+						}
+						result.push(obj);
+					}
+					return result; //JavaScript object
+					  //return JSON.stringify(result); //JSON
+				};
+				for (var i in fileArray) {
+					var file_result = fileArray[i];
+					var fileId = file_result.getId();
+					var file = nlapiLoadFile(fileId);
+					var fileName = file.getName();
+					var fileType = file.getType();
+					var fileContents = file.getValue();
+					try {
+						//Parse CSV to JSON object
+						var objFulfillmentData = csvTojs(fileContents);
+						for (var l=0; l<objFulfillmentData.length; l++) {
+							var soID = getInternalIdFromExternalId(l.ExtId);
+							if (soID) {
+								//Transform sales order
+								var ifRec = nlapiTransformRecord('salesorder',soID,'itemfulfillment');
+								//Set all lines to shipped
+								var lines = ifRec.getLineItemCount('item');
+								for (var j=1; j <=lines; j++) {
+									ifRec.setLineItemValue('item','itemreceive',j,'T');
+								}
+								//Set ship method and tracking info
+								ifRec.setLineItemValue('package','packagetrackingnumber',1,l.Tracking);
+								ifRec.setLineItemValue('package','packageweight',1,1);
+								ifRec.setLineItemValue('package','packagedescr',1,l.ShipMethod);
+								//Set date
+								ifRec.setFieldValue('trandate',l.Date);
+								
+							}
+							else {
+								//Sales order not found
+								nlapiSendEmail(this.__SENDER_EMPLOYEE_ID, this.__RECIPIENT_EMAIL, 'CSV Fulfillment Processing Error', 'Sales Order Needing Fulfillment not found with externalid: ' + l.ExtId);
+								continue;
+							}
+							//Increment count
+							importedRecords++;
+						}
+					} catch (err) {
+						(err instanceof nlobjError) ? nlapiLogExecution('DEBUG', 'System Error - Job ID ' + jobId, err.getCode() + '<br/>' + err.getDetails()) : 
+							nlapiLogExecution('DEBUG', 'Unexpected Error - Job ID ' + jobId, err.toString());
+						try {
+							var copiedFile = nlapiCreateFile(fileName, fileType, fileContents);
+							copiedFile.setFolder(errorFolderId);
+						} catch (e) {
+							(e instanceof nlobjError) ? nlapiLogExecution('DEBUG', 'System Error - Moving File', e.getCode() + '<br/>' + e.getDetails()) : 
+								nlapiLogExecution('DEBUG', 'Unexpected Error - Moving File', e.toString());
+							return 'error';
+						}
+					}
+					nlapiLogExecution('DEBUG', 'CSV Import Complete', fileName);
+					try {
+						var copiedFile = nlapiCreateFile(fileName, fileType, fileContents);
+						copiedFile.setFolder(folderId);
+					} catch (e) {
+						(e instanceof nlobjError) ? nlapiLogExecution('DEBUG', 'System Error - Moving File', e.getCode() + '<br/>' + e.getDetails()) : 
+							nlapiLogExecution('DEBUG', 'Unexpected Error - Moving File', e.toString());
+						return 'error';
+					}
+					try {
+						nlapiSubmitFile(copiedFile);
+						nlapiDeleteFile(fileId);
+					} catch (e) {
+						(e instanceof nlobjError) ? nlapiLogExecution('DEBUG', 'System Error - Saving File', e.getCode() + '<br/>' + e.getDetails()) : 
+							nlapiLogExecution('DEBUG', 'Unexpected Error - Saving File', e.toString());
+						return 'error';
+					}
+				}
+				return importedRecords;
 			}
 		}
 };
