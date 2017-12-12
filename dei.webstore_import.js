@@ -46,9 +46,9 @@ DEI.Service = {
 			,__ORDER_COMPLETED_FOLDER:		106345 //File Cabinet ID of Folder containing completed order import files
 			,__ORDER_ERROR_FOLDER:			106343 //File Cabinet ID of Folder containing order import files that did not complete due to error
 			
-			,__FULFILLMENT_PENDING_FOLDER:		536242
-			,__FULFILLMENT_COMPLETED_FOLDER:	536243
-			,__FULFILLMENT_ERROR_FOLDER:		536244
+			,__FULFILLMENT_PENDING_FOLDER:		956947 //File Cabinet ID of Folder containing pending fulfillment import files
+			,__FULFILLMENT_COMPLETED_FOLDER:	956948 //File Cabinet ID of Folder containing completed fulfillment import files
+			,__FULFILLMENT_ERROR_FOLDER:		956949 //File Cabinet ID of Folder containing fulfillment import files that did not complete due to error
 			
 			,__CUSTOMER_SAVED_IMPORT:		52 //Internal ID of Saved Customer CSV Import
 			,__ORDER_SAVED_IMPORT:			53 //Internal ID of Saved Order CSV Import
