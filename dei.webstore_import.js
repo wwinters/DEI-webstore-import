@@ -264,16 +264,16 @@ DEI.Service = {
 		
 			,transform: function (fileArray,folderId,errorFolderId) {
 				var importedRecords = 0;
-				var salesorderSearch = nlapiSearchRecord("salesorder",null,
+				var salesorderSearch = nlapiSearchRecord('salesorder',null,
 						[
-							   ["type","anyof","SalesOrd"], 
-							   "AND", 
-							   ["mainline","is","T"], 
-							   "AND", 
-							   ["status","anyof","SalesOrd:B","SalesOrd:D","SalesOrd:E"]
+							   ['type','anyof','SalesOrd'], 
+							   'AND', 
+							   ['mainline','is','T'], 
+							   'AND', 
+							   ['status','anyof','SalesOrd:B','SalesOrd:D','SalesOrd:E']
 						], 
 						[
-							new nlobjSearchColumn("externalid",null,null)
+							new nlobjSearchColumn('externalid',null,null)
 						]
 				);
 				var getInternalIdFromExternalId = function(salesorderSearch,extid) {
@@ -281,6 +281,22 @@ DEI.Service = {
 						if (salesorderSearch[i].getValue('externalid') == extid) {
 							return salesorderSearch[i].getId();
 						}
+					}
+					//No results?  Ad hoc search for externalid (adds governance)
+					var externalIdSearch = nlapiSearchRecord('salesorder',null,
+							[
+								['type','anyof','SalesOrd'],
+								'AND',
+								['mainline','is','T'],
+								'AND',
+								['externalid','is',extid]
+							],
+							[
+								new nlobjSearchColumn('externalid')
+							]
+					);
+					if (externalIdSearch && externalIdSearch.length > 0) {
+						return externalIdSearch[0].getId();
 					}
 					return null;
 				};
@@ -310,7 +326,7 @@ DEI.Service = {
 						//Parse CSV to JSON object
 						var objFulfillmentData = csvTojs(fileContents);
 						for (var l=0; l<objFulfillmentData.length; l++) {
-							var soID = getInternalIdFromExternalId(l.ExtId);
+							var soID = getInternalIdFromExternalId(salesorderSearch,objFulfillmentData[l].ExtId);
 							if (soID) {
 								//Transform sales order
 								var ifRec = nlapiTransformRecord('salesorder',soID,'itemfulfillment');
@@ -320,12 +336,12 @@ DEI.Service = {
 									ifRec.setLineItemValue('item','itemreceive',j,'T');
 								}
 								//Set ship method and tracking info
-								ifRec.setLineItemValue('package','packagetrackingnumber',1,l.Tracking);
+								ifRec.setLineItemValue('package','packagetrackingnumber',1,objFulfillmentData[l].Tracking);
 								ifRec.setLineItemValue('package','packageweight',1,1);
-								ifRec.setLineItemValue('package','packagedescr',1,l.ShipMethod);
+								ifRec.setLineItemValue('package','packagedescr',1,objFulfillmentData[l].ShipMethod);
 								//Set date
-								ifRec.setFieldValue('trandate',l.Date);
-								
+								ifRec.setFieldValue('trandate',objFulfillmentData[l].Date);
+								nlapiSubmitRecord(ifRec);
 							}
 							else {
 								//Sales order not found
