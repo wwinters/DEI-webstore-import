@@ -34,7 +34,7 @@ if (typeof (DEI) == 'undefined') {
 
 DEI.Service = {
 		SCH: {
-			 __UPLOAD_FOLDER:				106339	//File Cabinet ID of Folder to upload files
+			 __UPLOAD_FOLDER:				956950	//File Cabinet ID of Folder to upload files
 			,__ORDER_FILENAME:				'orders.csv'
 			,__CLIENT_FILENAME:				'clients.csv'
 			,__FULFILL_FILENAME:			'fulfill.csv'
@@ -211,7 +211,7 @@ DEI.Service = {
 								nlapiLogExecution('DEBUG', 'Unexpected Error - Moving Client Upload File', e.toString());
 						}
 					}
-					else if (fileName == DEI.Service.SCH.__FulFILL_FILENAME) {
+					else if (fileName == DEI.Service.SCH.__FULFILL_FILENAME) {
 						try {
 							fileName += Date.now().toString();
 							var copiedFile = nlapiCreateFile(fileName,fileType,fileContents);
@@ -366,8 +366,8 @@ DEI.Service = {
 							importedRecords++;
 						}
 					} catch (err) {
-						(err instanceof nlobjError) ? nlapiLogExecution('DEBUG', 'System Error - Job ID ' + jobId, err.getCode() + '<br/>' + err.getDetails()) : 
-							nlapiLogExecution('DEBUG', 'Unexpected Error - Job ID ' + jobId, err.toString());
+						(err instanceof nlobjError) ? nlapiLogExecution('DEBUG', 'System Error - Fulfillment Import', err.getCode() + '<br/>' + err.getDetails()) : 
+							nlapiLogExecution('DEBUG', 'Unexpected Error - Fulfillment Import', err.toString());
 						try {
 							var copiedFile = nlapiCreateFile(fileName, fileType, fileContents);
 							copiedFile.setFolder(errorFolderId);
