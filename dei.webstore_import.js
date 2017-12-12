@@ -130,7 +130,7 @@ DEI.Service = {
 					if (ifFiles) {
 						nlapiLogExecution('DEBUG', funcName, 'Fulfillment Import File(s) Found');
 						var fulfillmentImport = DEI.Service.DB.transform(
-								ifFiles,this.FULFILLMENT_COMPLETED_FOLDER,this.__FULFILLMENT_ERROR_FOLDER
+								ifFiles,this.__FULFILLMENT_COMPLETED_FOLDER,this.__FULFILLMENT_ERROR_FOLDER
 								);
 						if (fulfillmentImport == 'error') {
 							nlapiSendEmail(this.__EMAIL, this.__RECIPIENT_EMAIL, 'CSV Fulfillment Import Error', 'CSV Fulfillment Import Error');
