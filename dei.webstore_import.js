@@ -37,6 +37,7 @@ DEI.Service = {
 			 __UPLOAD_FOLDER:				106339	//File Cabinet ID of Folder to upload files
 			,__ORDER_FILENAME:				'orders.csv'
 			,__CLIENT_FILENAME:				'clients.csv'
+			,__FULFILL_FILENAME:			'fulfill.csv'
 			
 			,__CUSTOMER_PENDING_FOLDER: 	106340 //File Cabinet ID of Folder containing pending customer import files
 			,__CUSTOMER_COMPLETED_FOLDER:	106344 //File Cabinet ID of Folder containing completed customer import files
@@ -208,6 +209,19 @@ DEI.Service = {
 						catch (e) {
 							(e instanceof nlobjError) ? nlapiLogExecution('DEBUG', 'System Error - Moving Client Upload File', e.getCode() + '<br/>' + e.getDetails()) : 
 								nlapiLogExecution('DEBUG', 'Unexpected Error - Moving Client Upload File', e.toString());
+						}
+					}
+					else if (fileName == DEI.Service.SCH.__FulFILL_FILENAME) {
+						try {
+							fileName += Date.now().toString();
+							var copiedFile = nlapiCreateFile(fileName,fileType,fileContents);
+							copiedFile.setFolder(DEI.Service.SCH.__FULFILLMENT_PENDING_FOLDER);
+							nlapiSubmitFile(copiedFile);
+							nlapiDeleteFile(fileId);
+						}
+						catch (e) {
+							(e instanceof nlobjError) ? nlapiLogExecution('DEBUG', 'System Error - Moving Fulfillment Upload File', e.getCode() + '<br/>' + e.getDetails()) : 
+								nlapiLogExecution('DEBUG', 'Unexpected Error - Moving Fulfillment Upload File', e.toString());
 						}
 					}
 				}
