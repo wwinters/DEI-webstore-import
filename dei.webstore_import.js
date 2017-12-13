@@ -22,7 +22,8 @@
  * 												Create three new folders in file cabinet and enter the internal ids in the code below for fulfillment folders
  * 												The csv import file for fulfillments must contain the following headers:
  * 												Date,ShipMethod,Tracking,ExtId,Empty
- * 
+ * 												
+ * 												Column marked Empty Must be Last
  * 												For some reason, NetSuite corrupts the last cell of the csv file when the script is run server-side, this is not necessary client-side
  *  
  * 									
