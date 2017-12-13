@@ -18,6 +18,13 @@
  *												Appends time stamp to each file name to move files into pending folder to not overwrite the previous files.
  *
  * 1.20		7 Dec 2017		wwinters			Add logic to import item fulfillments as sales order transforms
+ * 												Script will still run on demand using shortcut alredy set up.
+ * 												Create three new folders in file cabinet and enter the internal ids in the code below for fulfillment folders
+ * 												The csv import file for fulfillments must contain the following headers:
+ * 												Date,ShipMethod,Tracking,ExtId,Empty
+ * 
+ * 												For some reason, NetSuite corrupts the last cell of the csv file when the script is run server-side, this is not necessary client-side
+ *  
  * 									
  */
 
@@ -34,7 +41,7 @@ if (typeof (DEI) == 'undefined') {
 
 DEI.Service = {
 		SCH: {
-			 __UPLOAD_FOLDER:				956950	//File Cabinet ID of Folder to upload files
+			 __UPLOAD_FOLDER:				106399	//File Cabinet ID of Folder to upload files
 			,__ORDER_FILENAME:				'orders.csv'
 			,__CLIENT_FILENAME:				'clients.csv'
 			,__FULFILL_FILENAME:			'fulfill.csv'
