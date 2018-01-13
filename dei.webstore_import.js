@@ -383,20 +383,28 @@ DEI.Service = {
 						for (var l=0; l<objFulfillmentData.length; l++) {
 							var soID = getInternalIdFromExternalId(salesorderSearch,objFulfillmentData[l].ExtId);
 							if (soID) {
-								//Transform sales order
-								var ifRec = nlapiTransformRecord('salesorder',soID,'itemfulfillment');
-								//Set all lines to shipped
-								var lines = ifRec.getLineItemCount('item');
-								for (var j=1; j <=lines; j++) {
-									ifRec.setLineItemValue('item','itemreceive',j,'T');
+								try{
+									//Transform sales order
+									var ifRec = nlapiTransformRecord('salesorder',soID,'itemfulfillment');
+									//Set all lines to shipped
+									var lines = ifRec.getLineItemCount('item');
+									for (var j=1; j <=lines; j++) {
+										ifRec.setLineItemValue('item','itemreceive',j,'T');
+									}
+									//Set ship method and tracking info
+									ifRec.setLineItemValue('package','packagetrackingnumber',1,objFulfillmentData[l].Tracking);
+									ifRec.setLineItemValue('package','packageweight',1,1);
+									ifRec.setLineItemValue('package','packagedescr',1,objFulfillmentData[l].ShipMethod);
+									//Set date
+									ifRec.setFieldValue('trandate',objFulfillmentData[l].Date);
+									nlapiSubmitRecord(ifRec);
 								}
-								//Set ship method and tracking info
-								ifRec.setLineItemValue('package','packagetrackingnumber',1,objFulfillmentData[l].Tracking);
-								ifRec.setLineItemValue('package','packageweight',1,1);
-								ifRec.setLineItemValue('package','packagedescr',1,objFulfillmentData[l].ShipMethod);
-								//Set date
-								ifRec.setFieldValue('trandate',objFulfillmentData[l].Date);
-								nlapiSubmitRecord(ifRec);
+								catch (err) {
+									(err instanceof nlobjError) ? error = err.getCode() + '<br/>' + err.getDetails() : error = err.toString();
+									nlapiLogExecution('DEBUG', 'System Error - Fulfillment Import', error);
+									nlapiSendEmail(DEI.Service.SCH.__SENDER_EMPLOYEE_ID, DEI.Service.SCH.__RECIPIENT_EMAIL, 'CSV Fulfillment Processing Error', error);
+									continue;
+								}
 							}
 							else {
 								//Sales order not found
