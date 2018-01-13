@@ -25,6 +25,10 @@
  * 												
  * 												Column marked Empty Must be Last
  * 												For some reason, NetSuite corrupts the last cell of the csv file when the script is run server-side, this is not necessary client-side
+ *
+ * 1.30		12 January 2018	wwinters			Change to item fulfillment portion of script to reflect that external id may not be found in External ID field.
+ *												It could be the Order Reference Number (custbodyorderref)
+ *												or the Sales Order number itself.				
  *  
  * 									
  */
@@ -42,7 +46,7 @@ if (typeof (DEI) == 'undefined') {
 
 DEI.Service = {
 		SCH: {
-			 __UPLOAD_FOLDER:				106399	//File Cabinet ID of Folder to upload files
+			 __UPLOAD_FOLDER:				106339	//File Cabinet ID of Folder to upload files
 			,__ORDER_FILENAME:				'orders.csv'
 			,__CLIENT_FILENAME:				'clients.csv'
 			,__FULFILL_FILENAME:			'fulfill.csv'
@@ -55,9 +59,9 @@ DEI.Service = {
 			,__ORDER_COMPLETED_FOLDER:		106345 //File Cabinet ID of Folder containing completed order import files
 			,__ORDER_ERROR_FOLDER:			106343 //File Cabinet ID of Folder containing order import files that did not complete due to error
 			
-			,__FULFILLMENT_PENDING_FOLDER:		956947 //File Cabinet ID of Folder containing pending fulfillment import files
-			,__FULFILLMENT_COMPLETED_FOLDER:	956948 //File Cabinet ID of Folder containing completed fulfillment import files
-			,__FULFILLMENT_ERROR_FOLDER:		956949 //File Cabinet ID of Folder containing fulfillment import files that did not complete due to error
+			,__FULFILLMENT_PENDING_FOLDER:		138719 //File Cabinet ID of Folder containing pending fulfillment import files
+			,__FULFILLMENT_COMPLETED_FOLDER:	138720 //File Cabinet ID of Folder containing completed fulfillment import files
+			,__FULFILLMENT_ERROR_FOLDER:		138721 //File Cabinet ID of Folder containing fulfillment import files that did not complete due to error
 			
 			,__CUSTOMER_SAVED_IMPORT:		52 //Internal ID of Saved Customer CSV Import
 			,__ORDER_SAVED_IMPORT:			53 //Internal ID of Saved Order CSV Import
@@ -295,30 +299,55 @@ DEI.Service = {
 							   ['status','anyof','SalesOrd:B','SalesOrd:D','SalesOrd:E']
 						], 
 						[
-							new nlobjSearchColumn('externalid',null,null)
+							new nlobjSearchColumn('externalid',null,null),
+							new nlobjSearchColumn('tranid',null,null),
+							new nlobjSearchColumn('custbodyorderref',null,null)
 						]
 				);
 				var getInternalIdFromExternalId = function(salesorderSearch,extid) {
 					for (var i=0; i<salesorderSearch.length; i++) {
+						//Fulfillment CSV ExtId column may be External ID OR Order Reference Number OR Document Number
 						if (salesorderSearch[i].getValue('externalid') == extid) {
 							return salesorderSearch[i].getId();
 						}
+						else if (salesorderSearch[i].getValue('custbodyorderref') == extid) {
+							return salesorderSearch[i].getId();
+						}
+						else if (salesorderSearch[i].getValue('tranid') == extid) {
+							return salesorderSearch[i].getId();
+						}
 					}
-					//No results?  Ad hoc search for externalid (adds governance)
+					//No results?  Ad hoc search for Order Reference Number (adds governance)
 					var externalIdSearch = nlapiSearchRecord('salesorder',null,
 							[
 								['type','anyof','SalesOrd'],
 								'AND',
 								['mainline','is','T'],
 								'AND',
-								['externalid','is',extid]
+								['custbodyorderref','is',extid]
 							],
 							[
-								new nlobjSearchColumn('externalid')
+								new nlobjSearchColumn('custbodyorderref')
 							]
 					);
 					if (externalIdSearch && externalIdSearch.length > 0) {
 						return externalIdSearch[0].getId();
+					}
+					//Still no results?  Use Document Number
+					var tranIdSearch = nlapiSearchRecord('salesorder',null,
+							[
+								['type','anyof','SalesOrd'],
+								'AND',
+								['mainline','is','T'],
+								'AND',
+								['tranid','is',extid]
+							],
+							[
+								new nlobjSearchColumn('tranid')
+							]
+					);
+					if (tranIdSearch && tranIdSearch.length > 0) {
+						return tranIdSearch[0].getId();
 					}
 					return null;
 				};
