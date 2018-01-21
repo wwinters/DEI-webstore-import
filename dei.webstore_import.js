@@ -29,8 +29,8 @@
  * 1.30		12 January 2018	wwinters			Change to item fulfillment portion of script to reflect that external id may not be found in External ID field.
  *												It could be the Order Reference Number (custbodyorderref)
  *												or the Sales Order number itself.				
- *  
- * 									
+ * 1.40		19 January 2018	rgomez				The lines 317-319 and 325-339 search for Order Reference number  
+ *												Commented out so it doesn't search additional places								
  */
 
 /**
@@ -66,7 +66,7 @@ DEI.Service = {
 			,__CUSTOMER_SAVED_IMPORT:		52 //Internal ID of Saved Customer CSV Import
 			,__ORDER_SAVED_IMPORT:			53 //Internal ID of Saved Order CSV Import
 			
-			,__RECIPIENT_EMAIL:				'customerservice@deiequipment.com'  //Replace with correct email address
+			,__RECIPIENT_EMAIL:				'rgomez@deiequipment.com'  //Replace with correct email address
 			,__SENDER_EMPLOYEE_ID:			-5						//Replace with correct employee id
 			
 			
@@ -314,29 +314,29 @@ DEI.Service = {
 						if (salesorderSearch[i].getValue('externalid') == extid) {
 							return salesorderSearch[i].getId();
 						}
-						else if (salesorderSearch[i].getValue('custbodyorderref') == extid) {
-							return salesorderSearch[i].getId();
-						}
+						//else if (salesorderSearch[i].getValue('custbodyorderref') == extid) {
+						//	return salesorderSearch[i].getId();
+						//}
 						else if (salesorderSearch[i].getValue('tranid') == extid) {
 							return salesorderSearch[i].getId();
 						}
 					}
 					//No results?  Ad hoc search for Order Reference Number (adds governance)
-					var externalIdSearch = nlapiSearchRecord('salesorder',null,
-							[
-								['type','anyof','SalesOrd'],
-								'AND',
-								['mainline','is','T'],
-								'AND',
-								['custbodyorderref','is',extid]
-							],
-							[
-								new nlobjSearchColumn('custbodyorderref')
-							]
-					);
-					if (externalIdSearch && externalIdSearch.length > 0) {
-						return externalIdSearch[0].getId();
-					}
+					//var externalIdSearch = nlapiSearchRecord('salesorder',null,
+					//		[
+					//			['type','anyof','SalesOrd'],
+					//			'AND',
+					//			['mainline','is','T'],
+					//			'AND',
+					//			['custbodyorderref','is',extid]
+					//		],
+					//		[
+					//			new nlobjSearchColumn('custbodyorderref')
+					//		]
+					//);
+					//if (externalIdSearch && externalIdSearch.length > 0) {
+					//	return externalIdSearch[0].getId();
+					//}
 					//Still no results?  Use Document Number
 					var tranIdSearch = nlapiSearchRecord('salesorder',null,
 							[
@@ -344,7 +344,7 @@ DEI.Service = {
 								'AND',
 								['mainline','is','T'],
 								'AND',
-								['tranid','is',extid]
+								['number','equalto',extid]
 							],
 							[
 								new nlobjSearchColumn('tranid')
@@ -394,9 +394,39 @@ DEI.Service = {
 									//Set ship method and tracking info
 									ifRec.setLineItemValue('package','packagetrackingnumber',1,objFulfillmentData[l].Tracking);
 									ifRec.setLineItemValue('package','packageweight',1,1);
-									ifRec.setLineItemValue('package','packagedescr',1,objFulfillmentData[l].ShipMethod);
+									//DEI package description not needed
+									//ifRec.setLineItemValue('package','packagedescr',1,objFulfillmentData[l].ShipMethod);
 									//Set date
 									ifRec.setFieldValue('trandate',objFulfillmentData[l].Date);
+									//DEI Set Import flag to yes
+									ifRec.setFieldValue('custbodyimpfshipeasy','T');
+									//DEI update shipping method
+									ifRec.setFieldValue('shipmethod', objFulfillmentData[l].ShipMethod); 
+									//DEI Set memo value
+										var MemoRecord = nlapiLoadRecord('salesorder', soID); // load the sales order
+										var classValue = MemoRecord.getFieldValue('class'); //replaced memo
+										var memovalue;
+										//var classValue = ifRec.getFieldValue('class'); 
+													
+										switch (classValue) {
+											case "14":            //Houzz
+											memovalue="HOUZZ";
+											break;
+											case "4":              //Amazon.com
+											memovalue="AMAZON.COM"
+											break;
+											case "1":              //eBay
+											memovalue="EBAY"
+											break;
+											case "5":              //GSA 
+											memovalue="GSA"
+											break;
+											case "18":            //Walmart
+											memovalue="WALMART.COM"
+											break;
+											}
+									ifRec.setFieldValue('memo',memovalue);
+		
 									nlapiSubmitRecord(ifRec);
 								}
 								catch (err) {
@@ -428,7 +458,11 @@ DEI.Service = {
 						} catch (e) {
 							(e instanceof nlobjError) ? nlapiLogExecution('DEBUG', 'System Error - Moving File', e.getCode() + '<br/>' + e.getDetails()) : 
 								nlapiLogExecution('DEBUG', 'Unexpected Error - Moving File', e.toString());
-							return 'error';
+								if (importedRecords == 0) {
+									nlapiSubmitFile(copiedFile);
+									nlapiDeleteFile(fileId);
+									return 'error';
+								}
 						}
 					}
 					else {
@@ -441,14 +475,14 @@ DEI.Service = {
 								nlapiLogExecution('DEBUG', 'Unexpected Error - Moving File', e.toString());
 							return 'error';
 						}
-						try {
+					}
+					try {
 							nlapiSubmitFile(copiedFile);
 							nlapiDeleteFile(fileId);
 						} catch (e) {
 							(e instanceof nlobjError) ? nlapiLogExecution('DEBUG', 'System Error - Saving File', e.getCode() + '<br/>' + e.getDetails()) : 
 								nlapiLogExecution('DEBUG', 'Unexpected Error - Saving File', e.toString());
 							return 'error';
-						}
 					}
 				}
 				return importedRecords;
