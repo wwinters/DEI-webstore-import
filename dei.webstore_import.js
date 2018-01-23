@@ -294,7 +294,7 @@ DEI.Service = {
 			,transform: function (fileArray,folderId,errorFolderId) {
 				var error = false;
 				var importedRecords = 0;
-				var salesorderSearch = nlapiSearchRecord('salesorder',null,
+				var salesorderSearch = nlapiSearchRecord('transaction',null,
 						[
 							   ['type','anyof','SalesOrd'], 
 							   'AND', 
