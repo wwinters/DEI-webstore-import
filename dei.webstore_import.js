@@ -380,7 +380,13 @@ DEI.Service = {
 					try {
 						//Parse CSV to JSON object
 						var objFulfillmentData = csvTojs(fileContents);
+						var arrCompletedExtIds = [];
 						for (var l=0; l<objFulfillmentData.length; l++) {
+							if (arrCompletedExtIds.indexOf(objFulfillmentData[l].ExtId) != -1) {
+								//External ID already processed
+								nlapiLogExecution('DEBUG','External Id: ' + objFulfillmentData[l].ExtId, 'Already completed, skipping');
+								continue;
+							}
 							var soID = getInternalIdFromExternalId(salesorderSearch,objFulfillmentData[l].ExtId);
 							if (soID) {
 								try{
@@ -428,6 +434,9 @@ DEI.Service = {
 									ifRec.setFieldValue('memo',memovalue);
 		
 									nlapiSubmitRecord(ifRec);
+									nlapiLogExecution('DEBUG', 'External Id: ' + objFulfillmentData[l].ExtId, 'Item Fulfillment record submitted successfully');
+									//Add to array of completed external ids
+									arrCompletedExtIds.push(objFulfillmentData[l].ExtId);
 								}
 								catch (err) {
 									(err instanceof nlobjError) ? error = err.getCode() + '<br/>' + err.getDetails() : error = err.toString();
