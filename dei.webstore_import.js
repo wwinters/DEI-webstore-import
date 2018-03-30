@@ -46,7 +46,7 @@ if (typeof (DEI) == 'undefined') {
 
 DEI.Service = {
 		SCH: {
-			 __UPLOAD_FOLDER:				106339	//File Cabinet ID of Folder to upload files
+			 __UPLOAD_FOLDER:				140768	//File Cabinet ID of Folder to upload files
 			,__ORDER_FILENAME:				'orders.csv'
 			,__CLIENT_FILENAME:				'clients.csv'
 			,__FULFILL_FILENAME:			'fulfill.csv'
@@ -164,7 +164,7 @@ DEI.Service = {
 				
 				DEI.Service.FC.removeFiles(completed_customer_files);
 				DEI.Service.FC.removeFiles(completed_order_files);
-				//DEI.Service.FC.removeFiles(completed_fulfill_files);
+				DEI.Service.FC.removeFiles(completed_fulfill_files); //DEI Enabled
 			}
 		}
 		
@@ -294,7 +294,7 @@ DEI.Service = {
 			,transform: function (fileArray,folderId,errorFolderId) {
 				var error = false;
 				var importedRecords = 0;
-				var salesorderSearch = nlapiSearchRecord('transaction',null,
+				var salesorderSearch = nlapiSearchRecord('transaction',null, //OLD var salesorderSearch = nlapiSearchRecord('salesorder',null,
 						[
 							   ['type','anyof','SalesOrd'], 
 							   'AND', 
@@ -308,16 +308,16 @@ DEI.Service = {
 							new nlobjSearchColumn('custbodyorderref',null,null)
 						]
 				);
-				var getInternalIdFromExternalId = function(salesorderSearch,extid) {
+				var getInternalIdFromExternalId = function(salesorderSearch,ExtId) {
 					for (var i=0; i<salesorderSearch.length; i++) {
 						//Fulfillment CSV ExtId column may be External ID OR Order Reference Number OR Document Number
-						if (salesorderSearch[i].getValue('externalid') == extid) {
+						if (salesorderSearch[i].getValue('externalid') == ExtId) {
 							return salesorderSearch[i].getId();
 						}
-						//else if (salesorderSearch[i].getValue('custbodyorderref') == extid) {
+						//else if (salesorderSearch[i].getValue('custbodyorderref') == ExtId) {
 						//	return salesorderSearch[i].getId();
 						//}
-						else if (salesorderSearch[i].getValue('tranid') == extid) {
+						else if (salesorderSearch[i].getValue('tranid') == ExtId) {
 							return salesorderSearch[i].getId();
 						}
 					}
@@ -328,7 +328,7 @@ DEI.Service = {
 					//			'AND',
 					//			['mainline','is','T'],
 					//			'AND',
-					//			['custbodyorderref','is',extid]
+					//			['custbodyorderref','is',ExtId]
 					//		],
 					//		[
 					//			new nlobjSearchColumn('custbodyorderref')
@@ -338,21 +338,21 @@ DEI.Service = {
 					//	return externalIdSearch[0].getId();
 					//}
 					//Still no results?  Use Document Number
-					var tranIdSearch = nlapiSearchRecord('salesorder',null,
-							[
-								['type','anyof','SalesOrd'],
-								'AND',
-								['mainline','is','T'],
-								'AND',
-								['number','equalto',extid]
-							],
-							[
-								new nlobjSearchColumn('tranid')
-							]
-					);
-					if (tranIdSearch && tranIdSearch.length > 0) {
-						return tranIdSearch[0].getId();
-					}
+					//var tranIdSearch = nlapiSearchRecord('salesorder',null,
+					//		[
+					//			['type','anyof','SalesOrd'],
+					//			'AND',
+					//			['mainline','is','T'],
+					//			'AND',
+					//			['number','equalto',ExtId] // Old ['tranid','is',ExtId]
+					//		],
+					//		[
+					//			new nlobjSearchColumn('tranid')
+					//		]
+					//);
+					//if (tranIdSearch && tranIdSearch.length > 0) {
+					//	return tranIdSearch[0].getId();
+					//}
 					return null;
 				};
 				var csvTojs = function(csv) {
@@ -409,34 +409,13 @@ DEI.Service = {
 									//DEI update shipping method
 									ifRec.setFieldValue('shipmethod', objFulfillmentData[l].ShipMethod); 
 									//DEI Set memo value
-										var MemoRecord = nlapiLoadRecord('salesorder', soID); // load the sales order
-										var classValue = MemoRecord.getFieldValue('class'); //replaced memo
-										var memovalue;
-										//var classValue = ifRec.getFieldValue('class'); 
-													
-										switch (classValue) {
-											case "14":            //Houzz
-											memovalue="HOUZZ";
-											break;
-											case "4":              //Amazon.com
-											memovalue="AMAZON.COM"
-											break;
-											case "1":              //eBay
-											memovalue="EBAY"
-											break;
-											case "5":              //GSA 
-											memovalue="GSA"
-											break;
-											case "18":            //Walmart
-											memovalue="WALMART.COM"
-											break;
-											}
-									ifRec.setFieldValue('memo',memovalue);
-		
-									nlapiSubmitRecord(ifRec);
+									var MemoRecord = nlapiLoadRecord('salesorder', soID); // load the sales order
+									var memovalue = MemoRecord.getFieldText('class');
+									if (memovalue) { ifRec.setFieldValue('memo',memovalue.toUpperCase());
+									nlapiSubmitRecord(ifRec); }
 									nlapiLogExecution('DEBUG', 'External Id: ' + objFulfillmentData[l].ExtId, 'Item Fulfillment record submitted successfully');
 									//Add to array of completed external ids
-									arrCompletedExtIds.push(objFulfillmentData[l].ExtId);
+								arrCompletedExtIds.push(objFulfillmentData[l].ExtId);
 								}
 								catch (err) {
 									(err instanceof nlobjError) ? error = err.getCode() + '<br/>' + err.getDetails() : error = err.toString();
@@ -467,11 +446,7 @@ DEI.Service = {
 						} catch (e) {
 							(e instanceof nlobjError) ? nlapiLogExecution('DEBUG', 'System Error - Moving File', e.getCode() + '<br/>' + e.getDetails()) : 
 								nlapiLogExecution('DEBUG', 'Unexpected Error - Moving File', e.toString());
-								if (importedRecords == 0) {
-									nlapiSubmitFile(copiedFile);
-									nlapiDeleteFile(fileId);
-									return 'error';
-								}
+							return 'error';
 						}
 					}
 					else {
